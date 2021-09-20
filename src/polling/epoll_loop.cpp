@@ -35,7 +35,6 @@ void Loop::add_server_poll() {
     struct epoll_event poll; 
     memset(&poll, 0, sizeof(struct epoll_event));
     poll.events = EPOLLIN | EPOLLERR | EPOLLHUP;
-    //poll.data.fd = server->fd;
     epoll_ctl(epoll, EPOLL_CTL_ADD, server->fd, &poll); 
 }
 void Loop::del_server_poll() {
@@ -45,7 +44,7 @@ void Loop::del_server_poll() {
 void Loop::run() { 
     add_server_poll();
     while (!_stop) {
-        num_ready_polls = epoll_wait(epoll, ready_polls, 1024, 2000);
+        num_ready_polls = epoll_wait(epoll, ready_polls, 1024, -1);
         
         for (current_ready_poll = 0; current_ready_poll < num_ready_polls; current_ready_poll++) {
             struct epoll_event* poll = &ready_polls[current_ready_poll];
@@ -54,7 +53,7 @@ void Loop::run() {
             if (!poll->data.ptr) {
                 if (events & EPOLLIN) {
                     struct epoll_event poll;
-                    poll.events = EPOLLIN | EPOLLOUT | EPOLLRDHUP | EPOLLET;
+                    poll.events = EPOLLIN | EPOLLOUT | EPOLLRDHUP; // | EPOLLET;
                     int client_fd;
                     struct sockaddr_in client_addr;
                     if (accept_conn(server->fd, &client_fd, &client_addr)) {
@@ -65,26 +64,33 @@ void Loop::run() {
             } else {
                 Client* client = get_client(poll);
                 if (events & EPOLLIN) { 
-                    if (!client->read()) {
-                        del_client_poll(poll);
-                        server->del_client(client);
-                        continue;
-                    }
+                    client->read();
                 }
                 if (events & EPOLLOUT) {
                     client->write();
                 }
-                if (events & EPOLLIN && events & EPOLLOUT) {
+                /*if (events & EPOLLIN && events & EPOLLOUT) {
                     client->readwrite();
-                }
+                }*/
                 if (events & EPOLLRDHUP) {
                     del_client_poll(poll);
                     server->del_client(client);
                     continue;
                 }
+
+                switch (client->status) {
+                    case CLOSED: 
+                        del_client_poll(poll);
+                        server->del_client(client);
+                        break;
+                    case B_RESP_DATA:
+
+                        break;
+
+                }
             }
         }
-        server->log();
+        // server->log();
     }
 
     del_server_poll();

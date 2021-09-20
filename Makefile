@@ -14,7 +14,6 @@ CPPFLAGS += -O2 -Wall
 
 LDFLAGS += 
 
-
 ifeq ($(USE_SSL),1)
 	LDFLAGS += -lwolfssl -Wl,-rpath /usr/local/lib/
 	CPPFLAGS += -DUSE_SSL

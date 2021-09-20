@@ -1,12 +1,9 @@
 #include <iostream>
 #include <signal.h>
+#include <functional>
 #include "server/server.h"
 
 std::unique_ptr<Server> server;
-
-void stop_server(int signum) {
-    server->stop();
-}
 
 int main() {
     server = std::make_unique<Server>(server_config_t {
@@ -17,7 +14,12 @@ int main() {
             .listen_addr = "0.0.0.0",
             .listen_port = 8080
     });
+    auto stop_server = +[] (int signum) {
+        server->stop();
+    };
     signal(SIGTERM, stop_server);
     signal(SIGINT, stop_server);
     server->run();
+
+    return 0;
 }
